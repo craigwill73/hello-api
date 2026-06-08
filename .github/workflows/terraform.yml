@@ -26,7 +26,10 @@ env:
   TF_IN_AUTOMATION: true
   TF_VAR_subscription_id: 6f92508f-de99-458d-ba9d-4cb3e043d862
   TF_VAR_acr_name: acrhelloapicw73
-  ARM_USE_CLI: true
+  ARM_USE_OIDC: true
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
+  ARM_SUBSCRIPTION_ID: 6f92508f-de99-458d-ba9d-4cb3e043d862
   AZURE_RESOURCE_GROUP: rg-hello-api
   AKS_NAME: aks-hello-api
   AZURE_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
