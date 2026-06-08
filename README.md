@@ -1,6 +1,6 @@
 # hello-api
 
-REST API for the Bestseller Data Platform practical assignment.
+REST API for Platform practical assignment.
 
 - **Endpoint:** `GET /hello` → `Hello World`
 - **Stack:** Python (FastAPI) · Docker · Azure AKS · Terraform · GitHub Actions (OIDC → ACR)
