@@ -2,7 +2,7 @@ locals {
   tags = {
     project     = "hello-api"
     environment = "trial"
-    purpose     = "bestseller-assessment"
+    purpose     = "hello-api"
   }
 }
 

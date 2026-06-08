@@ -1,6 +1,10 @@
 # hello-api
 
+<<<<<<< HEAD
 REST API for Platform practical assignment.
+=======
+REST API technical assessment — single `/hello` endpoint deployed to Azure AKS with Terraform.
+>>>>>>> 8028639 (Fix Terraform bootstrap and anonymize config)
 
 - **Endpoint:** `GET /hello` → `Hello World`
 - **Stack:** Python (FastAPI) · Docker · Azure AKS · Terraform · GitHub Actions (OIDC → ACR)
@@ -19,7 +23,7 @@ terraform/            AKS, ACR, Kubernetes resources
 ## Prerequisites
 
 - Azure CLI (`az login`) on trial subscription
-- Terraform >= 1.6
+- Terraform >= 1.5
 - Docker
 - Python 3.12+
 
@@ -41,33 +45,38 @@ Update `terraform/versions.tf` backend block if you changed the storage account 
 
 ## 2. Deploy Azure infrastructure
 
+Deploy in **two phases** — the Kubernetes provider needs a kubeconfig from AKS before it can create workloads.
+
 ```bash
 cd ../terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit acr_name if acrhelloapicw73 is taken (must match .github/workflows/ci.yml)
 
 terraform init
-terraform apply
-```
-
-This creates:
-
-- Resource group `rg-hello-api`
-- ACR `acrhelloapicw73`
-- AKS cluster `aks-hello-api`
-- Static public IP + LoadBalancer Service
-
-Note the outputs:
-
-```bash
-terraform output hello_url
-terraform output public_ip
 ```
 
 If you already created `rg-hello-api` during OIDC setup:
 
 ```bash
-terraform import azurerm_resource_group.main rg-hello-api
+terraform import azurerm_resource_group.main \
+  /subscriptions/6f92508f-de99-458d-ba9d-4cb3e043d862/resourceGroups/rg-hello-api
+```
+
+**Phase A — Azure resources only (~10–15 min):**
+
+```bash
+terraform apply \
+  -target=azurerm_resource_group.main \
+  -target=azurerm_container_registry.main \
+  -target=azurerm_kubernetes_cluster.main \
+  -target=azurerm_role_assignment.aks_acr_pull \
+  -target=azurerm_public_ip.hello
+```
+
+**Phase B — Kubernetes app (after kubeconfig exists):**
+
+```bash
+az aks get-credentials --resource-group rg-hello-api --name aks-hello-api --overwrite-existing
 terraform apply
 ```
 
@@ -108,7 +117,7 @@ curl "$(terraform -chdir=terraform output -raw hello_url)"
 # Hello World
 ```
 
-Add the URL to your submission email to `dataplatform@bestseller.com`.
+Add the live URL to your submission email when complete.
 
 ## Local development
 
@@ -149,4 +158,4 @@ cd ../bootstrap && terraform destroy
 | Deploy | Local `terraform apply` |
 | TF state | Azure Storage backend |
 
-Production would add HTTPS ingress, AKS hardening, and remote CD — scoped down for the assignment.
+Production would add HTTPS ingress, AKS hardening, and remote CD — scoped down for this exercise.
