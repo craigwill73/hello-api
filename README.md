@@ -183,36 +183,39 @@ cd ../bootstrap && terraform destroy
 | Exposure | LoadBalancer + static public IP |
 | CI | pytest + ACR push (OIDC, linux/amd64) |
 | CD | Terraform plan on PR, apply on merge |
-| WAF | Azure Front Door (OWASP + per-IP rate limit) |
+| WAF | Azure Front Door (disabled on Free Trial — use direct IP) |
 | TF state | Azure Storage backend |
 
 Production would add HTTPS ingress, separate infra/app stacks, and approval gates — scoped down for this exercise.
 
 ## WAF (Azure Front Door)
 
-Traffic can be routed through **Azure Front Door WAF** in front of the AKS LoadBalancer IP:
+> **Free Trial subscriptions cannot create Azure Front Door resources.**
+> Error: `Free Trial and Student account is forbidden for Azure Frontdoor resources.`
+> Use the direct LoadBalancer URL (`terraform output hello_url_direct`) on trial accounts.
+
+Traffic can optionally be routed through **Azure Front Door WAF** on paid subscriptions:
 
 ```text
 Client → Front Door WAF → LoadBalancer IP → hello-api pod
 ```
 
-Managed in `terraform/frontdoor_waf.tf` (enabled by default):
+Managed in `terraform/frontdoor_waf.tf` (disabled by default):
 
 - **Custom rate limit** on Standard SKU — 100 requests / IP / minute
-- **OWASP managed rules** require `Premium_AzureFrontDoor` (not enabled on trial budget)
+- **OWASP managed rules** require `Premium_AzureFrontDoor`
 
 ```bash
-az provider register --namespace Microsoft.Cdn --wait
-cd terraform && terraform apply
-terraform output hello_url          # Front Door URL (WAF-protected)
-terraform output hello_url_direct   # Direct IP (bypasses WAF)
+# Paid subscription only:
+enable_frontdoor_waf = true
+terraform apply
 ```
 
-Disable WAF and use direct IP only:
+On trial accounts, protection options are limited to **AKS network policies / ingress rate limiting** or upgrading to a pay-as-you-go subscription.
+
+Disable explicitly:
 
 ```hcl
 # terraform.tfvars
 enable_frontdoor_waf = false
 ```
-
-**Note:** Backbase uses Application Gateway WAF + Istio at platform scale. Front Door is the lighter Azure WAF pattern for a public IP origin without re-architecting AKS.

@@ -1,7 +1,7 @@
 variable "enable_frontdoor_waf" {
   type        = bool
-  default     = true
-  description = "Place Azure Front Door WAF in front of the public LoadBalancer IP"
+  default     = false
+  description = "Place Azure Front Door WAF in front of the public LoadBalancer IP (not available on Free Trial subscriptions)"
 }
 
 variable "waf_rate_limit_threshold" {
