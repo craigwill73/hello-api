@@ -183,39 +183,70 @@ cd ../bootstrap && terraform destroy
 | Exposure | LoadBalancer + static public IP |
 | CI | pytest + ACR push (OIDC, linux/amd64) |
 | CD | Terraform plan on PR, apply on merge |
-| WAF | Azure Front Door (disabled on Free Trial — use direct IP) |
+| WAF | Not enabled — Azure Front Door blocked on Free Trial (see below) |
+| TLS | Not enabled — requires a hostname (see below) |
 | TF state | Azure Storage backend |
 
-Production would add HTTPS ingress, separate infra/app stacks, and approval gates — scoped down for this exercise.
+## Production hardening (not enabled on this deployment)
 
-## WAF (Azure Front Door)
+This assignment uses a **public HTTP endpoint** on a **Free Trial** subscription. The following are documented in Terraform but **not active** in the default configuration — enable them when moving to a paid subscription and/or when a hostname is available.
 
-> **Free Trial subscriptions cannot create Azure Front Door resources.**
-> Error: `Free Trial and Student account is forbidden for Azure Frontdoor resources.`
-> Use the direct LoadBalancer URL (`terraform output hello_url_direct`) on trial accounts.
+### TLS (HTTPS)
 
-Traffic can optionally be routed through **Azure Front Door WAF** on paid subscriptions:
+Trusted TLS needs a **DNS hostname** pointing at the LoadBalancer IP. Let's Encrypt and managed Azure certificates are not issued for bare IP addresses.
 
-```text
-Client → Front Door WAF → LoadBalancer IP → hello-api pod
+| Requirement | Status on trial deployment |
+|---|---|
+| Hostname (e.g. `api.example.com` → static IP) | Not configured |
+| TLS termination (ingress + cert-manager, or App Gateway) | Not enabled |
+| Current endpoint | `http://<static-ip>/hello` |
+
+**To enable when a hostname is available:**
+
+1. Create an **A record** from your domain to `terraform output -raw public_ip`
+2. Add **cert-manager** + **Let's Encrypt** ClusterIssuer on AKS, or terminate TLS at **Application Gateway** (Backbase-style)
+3. Switch from direct LoadBalancer exposure to **ingress with TLS**, or mount the certificate into the pod
+
+```hcl
+# Example: enable once hostname + paid subscription are in place
+# (ingress / cert-manager resources not included in this assignment scope)
 ```
 
-Managed in `terraform/frontdoor_waf.tf` (disabled by default):
+### WAF and rate limiting
 
-- **Custom rate limit** on Standard SKU — 100 requests / IP / minute
-- **OWASP managed rules** require `Premium_AzureFrontDoor`
+Edge WAF and rate limiting are implemented in `terraform/frontdoor_waf.tf` but **disabled by default** (`enable_frontdoor_waf = false`).
 
-```bash
-# Paid subscription only:
-enable_frontdoor_waf = true
-terraform apply
-```
+| Capability | Free Trial | Paid subscription |
+|---|---|---|
+| Azure Front Door WAF | **Not available** | Set `enable_frontdoor_waf = true` |
+| Custom rate limit (per IP) | — | Standard Front Door SKU |
+| OWASP managed rules | — | Requires Premium Front Door SKU |
+| Application Gateway WAF | Available (heavier setup) | Backbase platform pattern |
 
-On trial accounts, protection options are limited to **AKS network policies / ingress rate limiting** or upgrading to a pay-as-you-go subscription.
+> **Free Trial error:** `Free Trial and Student account is forbidden for Azure Frontdoor resources.`
 
-Disable explicitly:
+**To enable on a paid subscription:**
 
 ```hcl
 # terraform.tfvars
-enable_frontdoor_waf = false
+enable_frontdoor_waf = true
+waf_rate_limit_threshold = 100   # requests per IP per minute
 ```
+
+```bash
+az provider register --namespace Microsoft.Cdn --wait
+cd terraform && terraform apply
+terraform output hello_url         # Front Door URL (WAF-protected)
+terraform output hello_url_direct  # Direct LoadBalancer IP
+```
+
+**Alternative on trial (not implemented here):** application-layer rate limiting in FastAPI, or NGINX Ingress rate-limit annotations.
+
+### Summary
+
+```text
+Trial deployment:     HTTP → LoadBalancer → pod
+Production target:    HTTPS → WAF → LoadBalancer/Ingress → pod
+```
+
+Backbase production uses **Application Gateway WAF + Istio** in front of AKS — a heavier but similar defence-in-depth model.
