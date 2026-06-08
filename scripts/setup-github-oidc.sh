@@ -88,9 +88,18 @@ if az aks show --resource-group "$RG" --name "$AKS_NAME" >/dev/null 2>&1; then
 fi
 
 echo ""
-echo "=== GitHub secrets (delete & recreate if tenant was wrong) ==="
-echo "AZURE_CLIENT_ID=$APP_ID"
-echo "AZURE_TENANT_ID=$TENANT_ID"
-echo "AZURE_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"
+echo "=== GitHub repository secret ==="
+
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  gh secret set AZURE_CLIENT_ID --repo "$REPO" --body "$APP_ID"
+  echo "Set AZURE_CLIENT_ID via gh (tenant/subscription are in workflow env — no secret needed)."
+else
+  echo "gh not logged in — set manually at https://github.com/${REPO}/settings/secrets/actions"
+  echo "AZURE_CLIENT_ID=$APP_ID"
+fi
+
 echo ""
-echo "https://github.com/${REPO}/settings/secrets/actions"
+echo "Done. Workflows use:"
+echo "  secret:     AZURE_CLIENT_ID=$APP_ID"
+echo "  workflow env: AZURE_TENANT_ID=$TENANT_ID"
+echo "  workflow env: AZURE_SUBSCRIPTION_ID=$SUBSCRIPTION_ID"

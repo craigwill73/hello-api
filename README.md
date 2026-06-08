@@ -37,41 +37,31 @@ Everything after OIDC setup runs from GitHub Actions — no local `terraform app
 
 ### GitHub setup (one manual step)
 
-OIDC trust between GitHub and Azure cannot be created from Actions itself. Run **once** locally:
+GitHub Actions **cannot create its own OIDC secret** — workflows need `AZURE_CLIENT_ID` before they can authenticate to Azure (chicken-and-egg). Azure also requires an authenticated principal to register the federated trust.
+
+Run **once** locally (creates Azure app + federated credentials + RBAC + GitHub secret):
 
 ```bash
 az login
 az account set --subscription <your-subscription-id>
+gh auth login    # as craigwill73 — used to push the repo secret
 chmod +x scripts/setup-github-oidc.sh
 ./scripts/setup-github-oidc.sh
 ```
 
-The script prints values for GitHub. **Only one secret is required in CI:**
+The script:
 
-| Secret | Purpose |
+1. Creates the Azure AD app registration and OIDC federated credentials
+2. Grants Contributor on `rg-hello-api`, `rg-hello-api-tfstate`, and the AKS node RG (if AKS exists)
+3. Runs `gh secret set AZURE_CLIENT_ID` when `gh` is logged in
+
+| Config | Where |
 |---|---|
-| `AZURE_CLIENT_ID` | OIDC app registration client ID |
-
-Tenant and subscription IDs are set in the workflow `env` block (not secrets — they identify this trial subscription).
-
-Optional: delete old `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` secrets to avoid confusion.
-
-**Federated credentials created:**
-
-| Name | Subject | Used by |
-|---|---|---|
-| `github-main` | `repo:craigwill73/hello-api:ref:refs/heads/main` | `ci.yml` (ACR push) |
-| `github-production` | `repo:craigwill73/hello-api:environment:production` | `terraform.yml` apply |
+| `AZURE_CLIENT_ID` | GitHub secret (set by script) |
+| `AZURE_TENANT_ID` | Workflow `env` block |
+| `AZURE_SUBSCRIPTION_ID` | Workflow `env` block |
 
 **Environment:** create `production` under Settings → Environments (optional approval gate before `terraform apply`).
-
-**OIDC role:** Contributor on:
-
-- `rg-hello-api`
-- `rg-hello-api-tfstate` (Terraform remote state)
-- `MC_rg-hello-api_*` (AKS node resource group — created after AKS exists)
-
-If CI fails with `Tenant not found`, re-run `./scripts/setup-github-oidc.sh` and update `AZURE_CLIENT_ID`.
 
 ### Remote state bootstrap (automatic in CI)
 
