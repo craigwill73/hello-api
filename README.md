@@ -12,7 +12,8 @@ app/                       FastAPI application
 tests/                     pytest suite
 docker/Dockerfile          Container image
 bootstrap/                 One-time Terraform state backend
-terraform/                 AKS, ACR, Kubernetes resources
+terraform/                 AKS, ACR, Kubernetes, optional Front Door WAF
+scripts/                   OIDC setup helper
 .github/workflows/ci.yml   Test + build/push image to ACR
 .github/workflows/terraform.yml  Plan on PR, apply on merge
 ```
@@ -36,17 +37,37 @@ Manual apply is still supported locally from `terraform/`.
 
 ### GitHub setup
 
-**Secrets** (Settings → Secrets and variables → Actions):
+**One-time OIDC setup** (creates app registration + federated credentials):
 
-| Secret | Purpose |
+```bash
+az login
+az account set --subscription <your-subscription-id>
+chmod +x scripts/setup-github-oidc.sh
+./scripts/setup-github-oidc.sh
+```
+
+The script prints three values. **Delete and recreate** these repository secrets (avoids typos):
+
+| Secret | Example / notes |
 |---|---|
-| `AZURE_CLIENT_ID` | OIDC app registration |
-| `AZURE_TENANT_ID` | Azure AD tenant |
-| `AZURE_SUBSCRIPTION_ID` | Trial subscription |
+| `AZURE_CLIENT_ID` | From script output |
+| `AZURE_TENANT_ID` | From script output (must match `az account show --query tenantId -o tsv`) |
+| `AZURE_SUBSCRIPTION_ID` | From script output |
 
-**Environment** (optional): create `production` under Settings → Environments if you want an approval gate before `terraform apply`.
+Settings: https://github.com/craigwill73/hello-api/settings/secrets/actions
 
-**OIDC role:** the service principal needs **Contributor** on `rg-hello-api` (and access to read AKS for kubeconfig).
+**Federated credentials created:**
+
+| Name | Subject | Used by |
+|---|---|---|
+| `github-main` | `repo:craigwill73/hello-api:ref:refs/heads/main` | `ci.yml` (ACR push) |
+| `github-production` | `repo:craigwill73/hello-api:environment:production` | `terraform.yml` apply |
+
+**Environment:** create `production` under Settings → Environments (optional approval gate before `terraform apply`).
+
+**OIDC role:** Contributor on `rg-hello-api`.
+
+If CI fails with `Tenant not found`, the `AZURE_TENANT_ID` secret is wrong — re-run the setup script and recreate secrets.
 
 ### First-time bootstrap (local, once)
 
@@ -158,6 +179,37 @@ cd ../bootstrap && terraform destroy
 | Exposure | LoadBalancer + static public IP |
 | CI | pytest + ACR push (OIDC, linux/amd64) |
 | CD | Terraform plan on PR, apply on merge |
+| WAF | Azure Front Door (OWASP + per-IP rate limit) |
 | TF state | Azure Storage backend |
 
 Production would add HTTPS ingress, separate infra/app stacks, and approval gates — scoped down for this exercise.
+
+## WAF (Azure Front Door)
+
+Traffic can be routed through **Azure Front Door WAF** in front of the AKS LoadBalancer IP:
+
+```text
+Client → Front Door WAF → LoadBalancer IP → hello-api pod
+```
+
+Managed in `terraform/frontdoor_waf.tf` (enabled by default):
+
+- **Microsoft Default Rule Set** 2.1 (OWASP-style protections)
+- **Bot Manager** rule set
+- **Custom rate limit** — 100 requests / IP / minute (tune via `waf_rate_limit_threshold`)
+
+```bash
+az provider register --namespace Microsoft.Cdn --wait
+cd terraform && terraform apply
+terraform output hello_url          # Front Door URL (WAF-protected)
+terraform output hello_url_direct   # Direct IP (bypasses WAF)
+```
+
+Disable WAF and use direct IP only:
+
+```hcl
+# terraform.tfvars
+enable_frontdoor_waf = false
+```
+
+**Note:** Backbase uses Application Gateway WAF + Istio at platform scale. Front Door is the lighter Azure WAF pattern for a public IP origin without re-architecting AKS.

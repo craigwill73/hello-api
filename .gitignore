@@ -10,3 +10,7 @@ venv/
 .terraform.lock.hcl
 *.log
 .DS_Store
+terraform.tfvars
+bootstrap/terraform.tfvars
+bootstrap/terraform.tfstate
+bootstrap/terraform.tfstate.*

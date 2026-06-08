@@ -46,6 +46,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Verify Azure login
+        run: |
+          az account show --query "{subscription:name, tenant:tenantId}" -o table
+          test "$(az account show --query tenantId -o tsv)" = "${{ secrets.AZURE_TENANT_ID }}"
+          test "$(az account show --query id -o tsv)" = "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
       - name: Log in to ACR
         run: az acr login --name ${{ env.ACR_NAME }}
 

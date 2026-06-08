@@ -64,6 +64,8 @@ resource "azurerm_public_ip" "hello" {
 }
 
 resource "kubernetes_deployment" "hello" {
+  wait_for_rollout = false
+
   metadata {
     name = "hello-api"
     labels = {
