@@ -46,15 +46,15 @@ chmod +x scripts/setup-github-oidc.sh
 ./scripts/setup-github-oidc.sh
 ```
 
-The script prints three values. **Delete and recreate** these repository secrets (avoids typos):
+The script prints values for GitHub. **Only one secret is required in CI:**
 
-| Secret | Example / notes |
+| Secret | Purpose |
 |---|---|
-| `AZURE_CLIENT_ID` | From script output |
-| `AZURE_TENANT_ID` | From script output (must match `az account show --query tenantId -o tsv`) |
-| `AZURE_SUBSCRIPTION_ID` | From script output |
+| `AZURE_CLIENT_ID` | OIDC app registration client ID |
 
-Settings: https://github.com/craigwill73/hello-api/settings/secrets/actions
+Tenant and subscription IDs are set in the workflow `env` block (not secrets — they identify this trial subscription).
+
+Optional: delete old `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` secrets to avoid confusion.
 
 **Federated credentials created:**
 
@@ -67,7 +67,7 @@ Settings: https://github.com/craigwill73/hello-api/settings/secrets/actions
 
 **OIDC role:** Contributor on `rg-hello-api`.
 
-If CI fails with `Tenant not found`, the `AZURE_TENANT_ID` secret is wrong — re-run the setup script and recreate secrets.
+If CI fails with `Tenant not found`, re-run `./scripts/setup-github-oidc.sh` and update `AZURE_CLIENT_ID`.
 
 ### First-time bootstrap (local, once)
 

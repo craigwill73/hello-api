@@ -24,11 +24,13 @@ permissions:
 
 env:
   TF_IN_AUTOMATION: true
-  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_subscription_id: 6f92508f-de99-458d-ba9d-4cb3e043d862
   TF_VAR_acr_name: acrhelloapicw73
   ARM_USE_CLI: true
   AZURE_RESOURCE_GROUP: rg-hello-api
   AKS_NAME: aks-hello-api
+  AZURE_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
+  AZURE_SUBSCRIPTION_ID: 6f92508f-de99-458d-ba9d-4cb3e043d862
 
 defaults:
   run:
@@ -49,13 +51,13 @@ jobs:
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Verify Azure login
         run: |
           az account show --query "{subscription:name, tenant:tenantId}" -o table
-          test "$(az account show --query tenantId -o tsv)" = "${{ secrets.AZURE_TENANT_ID }}"
+          test "$(az account show --query tenantId -o tsv)" = "${{ env.AZURE_TENANT_ID }}"
 
       - name: Configure kubeconfig for Kubernetes provider
         run: |
@@ -116,13 +118,13 @@ jobs:
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
       - name: Verify Azure login
         run: |
           az account show --query "{subscription:name, tenant:tenantId}" -o table
-          test "$(az account show --query tenantId -o tsv)" = "${{ secrets.AZURE_TENANT_ID }}"
+          test "$(az account show --query tenantId -o tsv)" = "${{ env.AZURE_TENANT_ID }}"
 
       - name: Configure kubeconfig for Kubernetes provider
         run: |
