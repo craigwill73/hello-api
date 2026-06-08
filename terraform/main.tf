@@ -122,7 +122,8 @@ resource "kubernetes_service" "hello" {
   metadata {
     name = "hello-api"
     annotations = {
-      "service.beta.kubernetes.io/azure-pip-name" = azurerm_public_ip.hello.name
+      "service.beta.kubernetes.io/azure-pip-name"                    = azurerm_public_ip.hello.name
+      "service.beta.kubernetes.io/azure-load-balancer-resource-group" = azurerm_kubernetes_cluster.main.node_resource_group
     }
   }
 
