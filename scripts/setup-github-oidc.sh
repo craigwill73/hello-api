@@ -73,6 +73,17 @@ az role assignment create \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TFSTATE_RG" \
   -o none 2>/dev/null || echo "Contributor role on $TFSTATE_RG already assigned"
 
+AKS_NAME="aks-hello-api"
+if az aks show --resource-group "$RG" --name "$AKS_NAME" >/dev/null 2>&1; then
+  NODE_RG="$(az aks show --resource-group "$RG" --name "$AKS_NAME" --query nodeResourceGroup -o tsv)"
+  az role assignment create \
+    --assignee-object-id "$SP_OBJECT_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Contributor" \
+    --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$NODE_RG" \
+    -o none 2>/dev/null || echo "Contributor role on $NODE_RG already assigned"
+fi
+
 echo ""
 echo "=== GitHub secrets (delete & recreate if tenant was wrong) ==="
 echo "AZURE_CLIENT_ID=$APP_ID"

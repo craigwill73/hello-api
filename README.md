@@ -65,7 +65,11 @@ Optional: delete old `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` secrets to avoi
 
 **Environment:** create `production` under Settings → Environments (optional approval gate before `terraform apply`).
 
-**OIDC role:** Contributor on `rg-hello-api` **and** `rg-hello-api-tfstate` (Terraform remote state).
+**OIDC role:** Contributor on:
+
+- `rg-hello-api`
+- `rg-hello-api-tfstate` (Terraform remote state)
+- `MC_rg-hello-api_*` (AKS node resource group — created after AKS exists)
 
 If CI fails with `Tenant not found`, re-run `./scripts/setup-github-oidc.sh` and update `AZURE_CLIENT_ID`.
 
@@ -194,9 +198,8 @@ Client → Front Door WAF → LoadBalancer IP → hello-api pod
 
 Managed in `terraform/frontdoor_waf.tf` (enabled by default):
 
-- **Microsoft Default Rule Set** 2.1 (OWASP-style protections)
-- **Bot Manager** rule set
-- **Custom rate limit** — 100 requests / IP / minute (tune via `waf_rate_limit_threshold`)
+- **Custom rate limit** on Standard SKU — 100 requests / IP / minute
+- **OWASP managed rules** require `Premium_AzureFrontDoor` (not enabled on trial budget)
 
 ```bash
 az provider register --namespace Microsoft.Cdn --wait
