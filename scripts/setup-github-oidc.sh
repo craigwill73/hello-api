@@ -65,7 +65,10 @@ az role assignment create \
   -o none 2>/dev/null || echo "Contributor role on $RG already assigned"
 
 TFSTATE_RG="rg-hello-api-tfstate"
-az group show --name "$TFSTATE_RG" >/dev/null 2>&1 && \
+az group create --name "$TFSTATE_RG" --location westeurope \
+  --tags project=hello-api purpose=terraform-state \
+  -o none 2>/dev/null || true
+
 az role assignment create \
   --assignee-object-id "$SP_OBJECT_ID" \
   --assignee-principal-type ServicePrincipal \

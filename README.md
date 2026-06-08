@@ -11,9 +11,9 @@ REST API technical assessment — single `/hello` endpoint deployed to Azure AKS
 app/                       FastAPI application
 tests/                     pytest suite
 docker/Dockerfile          Container image
-bootstrap/                 One-time Terraform state backend
+bootstrap/                 Terraform state backend (auto-created in CI)
 terraform/                 AKS, ACR, Kubernetes, optional Front Door WAF
-scripts/                   OIDC setup helper
+scripts/                   OIDC setup + bootstrap-if-needed helper
 .github/workflows/ci.yml   Test + build/push image to ACR
 .github/workflows/terraform.yml  Plan on PR, apply on merge
 ```
@@ -30,14 +30,14 @@ scripts/                   OIDC setup helper
 | Event | Workflow | Action |
 |---|---|---|
 | PR changing `terraform/**` | `terraform.yml` | `terraform plan` + comment on PR |
-| Merge to `main` (terraform paths) | `terraform.yml` | `terraform apply` |
+| Merge to `main` (terraform paths) | `terraform.yml` | bootstrap (if needed) → `terraform apply` |
 | Push/PR to `main` | `ci.yml` | pytest + build/push `linux/amd64` image to ACR |
 
-Manual apply is still supported locally from `terraform/`.
+Everything after OIDC setup runs from GitHub Actions — no local `terraform apply` required.
 
-### GitHub setup
+### GitHub setup (one manual step)
 
-**One-time OIDC setup** (creates app registration + federated credentials):
+OIDC trust between GitHub and Azure cannot be created from Actions itself. Run **once** locally:
 
 ```bash
 az login
@@ -73,36 +73,29 @@ Optional: delete old `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` secrets to avoi
 
 If CI fails with `Tenant not found`, re-run `./scripts/setup-github-oidc.sh` and update `AZURE_CLIENT_ID`.
 
-### First-time bootstrap (local, once)
+### Remote state bootstrap (automatic in CI)
 
-Remote state must exist before CI can run Terraform:
+The Terraform workflow runs `scripts/bootstrap-if-needed.sh` before every plan/apply:
 
-```bash
-cd bootstrap
-cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform apply
-```
+1. Checks whether `rg-hello-api-tfstate` / `sthelloapicw73` exists
+2. If missing, runs `bootstrap/` Terraform to create the storage account and container
+3. If present, skips bootstrap
 
-First AKS creation is easiest locally (two-phase apply below). After that, use PRs + merge for Terraform changes.
+No local bootstrap commands are required after OIDC setup.
 
-## Local deploy (alternative to CI)
+## Local deploy (optional)
 
-### 1. Bootstrap Terraform remote state (one time)
+## Local deploy (optional)
 
-Pick a **globally unique** storage account name (letters/numbers only, 3–24 chars).
-Default in examples: `sthelloapicw73` — change if taken.
+For debugging only — CI is the primary path.
+
+### Bootstrap (optional locally)
 
 ```bash
-cd bootstrap
-cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform apply
+./scripts/bootstrap-if-needed.sh
 ```
 
-Update `terraform/versions.tf` backend block if you changed the storage account name.
-
-### 2. Deploy Azure infrastructure
+### Deploy infrastructure
 
 Deploy in **two phases** — the Kubernetes provider needs a kubeconfig from AKS before it can create workloads.
 

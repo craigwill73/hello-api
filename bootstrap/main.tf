@@ -32,6 +32,7 @@ variable "resource_group_name" {
 variable "storage_account_name" {
   type        = string
   description = "Globally unique storage account name for Terraform state"
+  default     = "sthelloapicw73"
 }
 
 resource "azurerm_resource_group" "tfstate" {

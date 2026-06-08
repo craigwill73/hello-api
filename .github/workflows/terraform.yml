@@ -5,11 +5,15 @@ on:
     branches: [main]
     paths:
       - "terraform/**"
+      - "bootstrap/**"
+      - "scripts/bootstrap-if-needed.sh"
       - ".github/workflows/terraform.yml"
   push:
     branches: [main]
     paths:
       - "terraform/**"
+      - "bootstrap/**"
+      - "scripts/bootstrap-if-needed.sh"
       - ".github/workflows/terraform.yml"
   workflow_dispatch:
 
@@ -34,6 +38,9 @@ env:
   AKS_NAME: aks-hello-api
   AZURE_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
   AZURE_SUBSCRIPTION_ID: 6f92508f-de99-458d-ba9d-4cb3e043d862
+  TFSTATE_RG: rg-hello-api-tfstate
+  TFSTATE_STORAGE: sthelloapicw73
+  AZURE_LOCATION: westeurope
 
 defaults:
   run:
@@ -61,6 +68,12 @@ jobs:
         run: |
           az account show --query "{subscription:name, tenant:tenantId}" -o table
           test "$(az account show --query tenantId -o tsv)" = "${{ env.AZURE_TENANT_ID }}"
+
+      - name: Ensure Terraform remote state backend
+        working-directory: .
+        run: |
+          chmod +x scripts/bootstrap-if-needed.sh
+          ./scripts/bootstrap-if-needed.sh
 
       - name: Configure kubeconfig for Kubernetes provider
         run: |
@@ -129,16 +142,44 @@ jobs:
           az account show --query "{subscription:name, tenant:tenantId}" -o table
           test "$(az account show --query tenantId -o tsv)" = "${{ env.AZURE_TENANT_ID }}"
 
+      - name: Ensure Terraform remote state backend
+        working-directory: .
+        run: |
+          chmod +x scripts/bootstrap-if-needed.sh
+          ./scripts/bootstrap-if-needed.sh
+
       - name: Configure kubeconfig for Kubernetes provider
         run: |
-          az aks get-credentials \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$AKS_NAME" \
-            --file "$HOME/.kube/config" \
-            --overwrite-existing
+          if az aks show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" >/dev/null 2>&1; then
+            az aks get-credentials \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "$AKS_NAME" \
+              --file "$HOME/.kube/config" \
+              --overwrite-existing
+          else
+            echo "AKS not found yet — applying Azure infrastructure first (Kubernetes resources on next run)."
+          fi
 
       - name: Terraform init
         run: terraform init -input=false
 
       - name: Terraform apply
-        run: terraform apply -auto-approve -input=false
+        run: |
+          if az aks show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" >/dev/null 2>&1; then
+            terraform apply -auto-approve -input=false
+          else
+            terraform apply -auto-approve -input=false \
+              -target=azurerm_resource_group.main \
+              -target=azurerm_container_registry.main \
+              -target=azurerm_kubernetes_cluster.main \
+              -target=azurerm_role_assignment.aks_acr_pull \
+              -target=azurerm_public_ip.hello
+
+            az aks get-credentials \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "$AKS_NAME" \
+              --file "$HOME/.kube/config" \
+              --overwrite-existing
+
+            terraform apply -auto-approve -input=false
+          fi
