@@ -64,6 +64,15 @@ az role assignment create \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG" \
   -o none 2>/dev/null || echo "Contributor role on $RG already assigned"
 
+TFSTATE_RG="rg-hello-api-tfstate"
+az group show --name "$TFSTATE_RG" >/dev/null 2>&1 && \
+az role assignment create \
+  --assignee-object-id "$SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Contributor" \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$TFSTATE_RG" \
+  -o none 2>/dev/null || echo "Contributor role on $TFSTATE_RG already assigned"
+
 echo ""
 echo "=== GitHub secrets (delete & recreate if tenant was wrong) ==="
 echo "AZURE_CLIENT_ID=$APP_ID"

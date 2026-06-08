@@ -65,7 +65,7 @@ Optional: delete old `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` secrets to avoi
 
 **Environment:** create `production` under Settings → Environments (optional approval gate before `terraform apply`).
 
-**OIDC role:** Contributor on `rg-hello-api`.
+**OIDC role:** Contributor on `rg-hello-api` **and** `rg-hello-api-tfstate` (Terraform remote state).
 
 If CI fails with `Tenant not found`, re-run `./scripts/setup-github-oidc.sh` and update `AZURE_CLIENT_ID`.
 
