@@ -4,7 +4,7 @@ from fastapi.responses import PlainTextResponse
 app = FastAPI(
     title="hello-api",
     version="1.0.0",
-    description="Minimal REST API for the hello-api assessment.",
+    description="Minimal REST API returning Hello World.",
 )
 
 v1 = APIRouter(prefix="/v1", tags=["v1"])
@@ -33,7 +33,7 @@ def hello_v1() -> PlainTextResponse:
 
 @app.get("/hello", tags=["legacy"])
 def hello_legacy() -> PlainTextResponse:
-    """Unversioned alias kept for assignment compatibility."""
+    """Unversioned alias for /v1/hello."""
     return hello_response()
 
 
