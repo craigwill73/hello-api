@@ -2,7 +2,9 @@
 
 REST API technical assessment — single `/hello` endpoint deployed to Azure AKS with Terraform.
 
-- **Endpoint:** `GET /hello` → `Hello World`
+- **Endpoint:** `GET /hello` → `Hello World` (assignment); canonical versioned path `GET /v1/hello`
+- **Ops:** `GET /health` (liveness), `GET /ready` (readiness)
+- **Contract:** OpenAPI at `/docs` and `/openapi.json`
 - **Stack:** Python (FastAPI) · Docker · Azure AKS · Terraform · GitHub Actions (OIDC)
 
 ## Repository layout
@@ -164,6 +166,9 @@ cd ../bootstrap && terraform destroy
 | Region | westeurope |
 | Nodes | 2 × Standard_B2s_v2 (default pool) |
 | Replicas | 2 pods, one per node (`topologySpreadConstraints`, hard spread) |
+| API version | `/v1/hello` (OpenAPI); `/hello` kept as legacy alias |
+| Probes | Liveness `/health`, readiness `/ready` |
+| PDB | `minAvailable: 1` during node drains |
 | Exposure | LoadBalancer + static public IP |
 | CI | pytest + ACR push (OIDC, linux/amd64) |
 | CD | Terraform plan on PR, apply on merge |
