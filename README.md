@@ -1,241 +1,80 @@
 # hello-api
 
-REST API technical assessment — single `/hello` endpoint deployed to Azure AKS with Terraform.
+Public REST API on Azure AKS — `GET /hello` returns plain text `Hello World`.
 
-- **Endpoint:** `GET /hello` → `Hello World` (assignment); canonical versioned path `GET /v1/hello`
-- **Ops:** `GET /health` (liveness), `GET /ready` (readiness)
-- **Contract:** OpenAPI at `/docs` and `/openapi.json`
-- **Stack:** Python (FastAPI) · Docker · Azure AKS · Terraform · GitHub Actions (OIDC)
+**Live base URL:** http://20.86.183.22
 
-## Repository layout
+## Endpoints
 
-```text
-app/                       FastAPI application
-tests/                     pytest suite
-docker/Dockerfile          Container image
-bootstrap/                 Terraform state backend (auto-created in CI)
-terraform/                 AKS, ACR, Kubernetes, optional Front Door WAF
-scripts/                   OIDC setup + bootstrap-if-needed helper
-.github/workflows/ci.yml   Test + build/push image to ACR
-.github/workflows/terraform.yml  Plan on PR, apply on merge
-```
-
-## Prerequisites
-
-- Azure CLI (`az login`) on trial subscription
-- Terraform >= 1.5
-- Docker (local builds only — CI builds in GitHub)
-- Python 3.12+
-
-## CI/CD (Backbase-style, simplified)
-
-| Event | Workflow | Action |
-|---|---|---|
-| PR changing `terraform/**` | `terraform.yml` | `terraform plan` + comment on PR |
-| Merge to `main` (terraform paths) | `terraform.yml` | bootstrap (if needed) → `terraform apply` |
-| Push/PR to `main` | `ci.yml` | pytest + build/push `linux/amd64` image to ACR |
-
-Everything after OIDC setup runs from GitHub Actions — no local `terraform apply` required.
-
-### GitHub setup (one manual step)
-
-GitHub Actions **cannot create its own OIDC secret** — workflows need `AZURE_CLIENT_ID` before they can authenticate to Azure (chicken-and-egg). Azure also requires an authenticated principal to register the federated trust.
-
-Run **once** locally (creates Azure app + federated credentials + RBAC + GitHub secret):
-
-```bash
-az login
-az account set --subscription <your-subscription-id>
-gh auth login    # as craigwill73 — used to push the repo secret
-chmod +x scripts/setup-github-oidc.sh
-./scripts/setup-github-oidc.sh
-```
-
-The script:
-
-1. Creates the Azure AD app registration and OIDC federated credentials
-2. Grants Contributor on `rg-hello-api`, `rg-hello-api-tfstate`, and the AKS node RG (if AKS exists)
-3. Runs `gh secret set AZURE_CLIENT_ID` when `gh` is logged in
-
-| Config | Where |
+| URL | Description |
 |---|---|
-| `AZURE_CLIENT_ID` | GitHub secret (set by script) |
-| `AZURE_TENANT_ID` | Workflow `env` block |
-| `AZURE_SUBSCRIPTION_ID` | Workflow `env` block |
-
-**Environment:** create `production` under Settings → Environments (optional approval gate before `terraform apply`).
-
-### Remote state bootstrap (automatic in CI)
-
-The Terraform workflow runs `scripts/bootstrap-if-needed.sh` before every plan/apply:
-
-1. Checks whether `rg-hello-api-tfstate` / `sthelloapicw73` exists
-2. If missing, runs `bootstrap/` Terraform to create the storage account and container
-3. If present, skips bootstrap
-
-No local bootstrap commands are required after OIDC setup.
-
-## Local deploy (optional)
-
-## Local deploy (optional)
-
-For debugging only — CI is the primary path.
-
-### Bootstrap (optional locally)
+| [http://20.86.183.22/hello](http://20.86.183.22/hello) | Assignment endpoint |
+| [http://20.86.183.22/v1/hello](http://20.86.183.22/v1/hello) | Versioned API path |
+| [http://20.86.183.22/health](http://20.86.183.22/health) | Liveness probe |
+| [http://20.86.183.22/ready](http://20.86.183.22/ready) | Readiness probe |
+| [http://20.86.183.22/docs](http://20.86.183.22/docs) | OpenAPI (Swagger UI) |
+| [http://20.86.183.22/openapi.json](http://20.86.183.22/openapi.json) | OpenAPI spec |
 
 ```bash
-./scripts/bootstrap-if-needed.sh
-```
-
-### Deploy infrastructure
-
-Deploy in **two phases** — the Kubernetes provider needs a kubeconfig from AKS before it can create workloads.
-
-```bash
-cd ../terraform
-cp terraform.tfvars.example terraform.tfvars
-terraform init
-```
-
-If you already created `rg-hello-api` during OIDC setup:
-
-```bash
-terraform import azurerm_resource_group.main \
-  /subscriptions/<subscription-id>/resourceGroups/rg-hello-api
-```
-
-**Phase A — Azure resources only (~10–15 min):**
-
-```bash
-terraform apply \
-  -target=azurerm_resource_group.main \
-  -target=azurerm_container_registry.main \
-  -target=azurerm_kubernetes_cluster.main \
-  -target=azurerm_role_assignment.aks_acr_pull \
-  -target=azurerm_public_ip.hello
-```
-
-**Phase B — Kubernetes app (after kubeconfig exists):**
-
-```bash
-az aks get-credentials --resource-group rg-hello-api --name aks-hello-api --overwrite-existing
-terraform apply
-```
-
-Run from **`~/Documents/GitHub/hello-api/terraform`**.
-
-### 3. Image in ACR
-
-CI pushes on every push to `main`. Local alternative:
-
-```bash
-docker build --platform linux/amd64 -f docker/Dockerfile -t acrhelloapicw73.azurecr.io/hello-api:latest .
-docker push acrhelloapicw73.azurecr.io/hello-api:latest
-kubectl rollout restart deployment/hello-api
-```
-
-### 4. Verify
-
-```bash
-curl "$(terraform -chdir=terraform output -raw hello_url)"
+curl http://20.86.183.22/hello
 # Hello World
 ```
 
-## Local development
+## Stack
+
+Python (FastAPI) · Docker · Azure AKS · Terraform · GitHub Actions
+
+Deployed to **westeurope** on a 2-node AKS cluster (2 replicas, spread across nodes).
+
+## Prerequisites
+
+To run or develop locally:
+
+- Python 3.12+
+- Docker (optional — images are built in CI)
+- Azure CLI and Terraform >= 1.5 (only if inspecting infrastructure)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
-curl http://localhost:8000/hello
 pytest -v
 ```
 
-## Tear down (save credits)
+## Design
 
-```bash
-cd terraform && terraform destroy
-cd ../bootstrap && terraform destroy
-```
-
-## Design decisions
-
-| Decision | Choice |
+| Area | Choice |
 |---|---|
-| Region | westeurope |
-| Nodes | 2 × Standard_B2s_v2 (default pool) |
-| Replicas | 2 pods, one per node (`topologySpreadConstraints`, hard spread) |
-| API version | `/v1/hello` (OpenAPI); `/hello` kept as legacy alias |
-| Probes | Liveness `/health`, readiness `/ready` |
-| PDB | `minAvailable: 1` during node drains |
-| Exposure | LoadBalancer + static public IP |
-| CI | pytest + ACR push (OIDC, linux/amd64) |
-| CD | Terraform plan on PR, apply on merge |
-| WAF | Not enabled — Azure Front Door blocked on Free Trial (see below) |
-| TLS | Not enabled — requires a hostname (see below) |
-| TF state | Azure Storage backend |
+| Region | `westeurope` |
+| Compute | 2 × `Standard_B2s_v2` nodes, 2 pod replicas |
+| Availability | Topology spread (one pod per node), `PodDisruptionBudget` (`minAvailable: 1`) |
+| Exposure | Azure LoadBalancer with static public IP |
+| API contract | OpenAPI at `/docs`; versioned paths under `/v1/` |
+| Delivery | GitHub Actions — test, image push, Terraform plan/apply |
 
-## Production hardening (not enabled on this deployment)
+## TLS (not enabled)
 
-This assignment uses a **public HTTP endpoint** on a **Free Trial** subscription. The following are documented in Terraform but **not active** in the default configuration — enable them when moving to a paid subscription and/or when a hostname is available.
+The API is served over **HTTP** on a static IP. Trusted HTTPS requires a **DNS hostname** — certificates are not issued for bare IPs.
 
-### TLS (HTTPS)
+With a hostname (e.g. `api.example.com` → `20.86.183.22`):
 
-Trusted TLS needs a **DNS hostname** pointing at the LoadBalancer IP. Let's Encrypt and managed Azure certificates are not issued for bare IP addresses.
+1. Point an **A record** at the static IP
+2. Terminate TLS at **ingress + cert-manager** (Let's Encrypt), **Application Gateway**, or **Azure Front Door**
+3. Redirect HTTP → HTTPS at the edge
 
-| Requirement | Status on trial deployment |
-|---|---|
-| Hostname (e.g. `api.example.com` → static IP) | Not configured |
-| TLS termination (ingress + cert-manager, or App Gateway) | Not enabled |
-| Current endpoint | `http://<static-ip>/hello` |
+## WAF and rate limiting (not enabled)
 
-**To enable when a hostname is available:**
+Edge protection is defined in `terraform/frontdoor_waf.tf` but disabled (`enable_frontdoor_waf = false`).
 
-1. Create an **A record** from your domain to `terraform output -raw public_ip`
-2. Add **cert-manager** + **Let's Encrypt** ClusterIssuer on AKS, or terminate TLS at **Application Gateway** (Backbase-style)
-3. Switch from direct LoadBalancer exposure to **ingress with TLS**, or mount the certificate into the pod
-
-```hcl
-# Example: enable once hostname + paid subscription are in place
-# (ingress / cert-manager resources not included in this assignment scope)
-```
-
-### WAF and rate limiting
-
-Edge WAF and rate limiting are implemented in `terraform/frontdoor_waf.tf` but **disabled by default** (`enable_frontdoor_waf = false`).
-
-| Capability | Free Trial | Paid subscription |
+| Capability | This deployment | With paid subscription |
 |---|---|---|
-| Azure Front Door WAF | **Not available** | Set `enable_frontdoor_waf = true` |
-| Custom rate limit (per IP) | — | Standard Front Door SKU |
-| OWASP managed rules | — | Requires Premium Front Door SKU |
-| Application Gateway WAF | Available (heavier setup) | Backbase platform pattern |
+| Azure Front Door WAF | Not available on Free Trial | `enable_frontdoor_waf = true` |
+| Per-IP rate limiting | — | Front Door Standard |
+| OWASP managed rules | — | Front Door Premium |
 
-> **Free Trial error:** `Free Trial and Student account is forbidden for Azure Frontdoor resources.`
-
-**To enable on a paid subscription:**
-
-```hcl
-# terraform.tfvars
-enable_frontdoor_waf = true
-waf_rate_limit_threshold = 100   # requests per IP per minute
-```
-
-```bash
-az provider register --namespace Microsoft.Cdn --wait
-cd terraform && terraform apply
-terraform output hello_url         # Front Door URL (WAF-protected)
-terraform output hello_url_direct  # Direct LoadBalancer IP
-```
-
-**Alternative on trial (not implemented here):** application-layer rate limiting in FastAPI, or NGINX Ingress rate-limit annotations.
-
-### Summary
+Free Trial accounts cannot create Front Door resources. Alternatives: Application Gateway WAF, or rate limiting at ingress / API gateway.
 
 ```text
-Trial deployment:     HTTP → LoadBalancer → pod
-Production target:    HTTPS → WAF → LoadBalancer/Ingress → pod
+Current:    HTTP → LoadBalancer → pod
+Production: HTTPS → WAF → Ingress/Gateway → pod
 ```
-
-Backbase production uses **Application Gateway WAF + Istio** in front of AKS — a heavier but similar defence-in-depth model.
