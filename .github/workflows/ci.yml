@@ -13,7 +13,7 @@ permissions:
 env:
   IMAGE_NAME: hello-api
   ACR_NAME: acrhelloapicw73
-  # Not secrets — identifiers for this trial subscription (see scripts/setup-github-oidc.sh)
+  # Subscription identifiers (not secrets)
   AZURE_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
   AZURE_SUBSCRIPTION_ID: 6f92508f-de99-458d-ba9d-4cb3e043d862
 
