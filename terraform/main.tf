@@ -31,7 +31,7 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   default_node_pool {
     name       = "default"
-    node_count = 1
+    node_count = var.node_count
     vm_size    = var.node_vm_size
   }
 
@@ -74,7 +74,7 @@ resource "kubernetes_deployment" "hello" {
   }
 
   spec {
-    replicas = 1
+    replicas = var.replica_count
 
     selector {
       match_labels = {
@@ -90,6 +90,22 @@ resource "kubernetes_deployment" "hello" {
       }
 
       spec {
+        affinity {
+          pod_anti_affinity {
+            preferred_during_scheduling_ignored_during_execution {
+              weight = 100
+              pod_affinity_term {
+                label_selector {
+                  match_labels = {
+                    app = "hello-api"
+                  }
+                }
+                topology_key = "kubernetes.io/hostname"
+              }
+            }
+          }
+        }
+
         container {
           name  = "hello-api"
           image = "${azurerm_container_registry.main.login_server}/${var.image_name}:${var.image_tag}"
@@ -98,6 +114,24 @@ resource "kubernetes_deployment" "hello" {
 
           port {
             container_port = 8000
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/hello"
+              port = 8000
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 5
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/hello"
+              port = 8000
+            }
+            initial_delay_seconds = 15
+            period_seconds        = 20
           }
 
           resources {
