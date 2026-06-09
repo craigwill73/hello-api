@@ -23,6 +23,18 @@ variable "aks_name" {
   default = "aks-hello-api"
 }
 
+variable "node_count" {
+  type        = number
+  default     = 2
+  description = "Number of nodes in the default AKS node pool"
+}
+
+variable "replica_count" {
+  type        = number
+  default     = 2
+  description = "Number of hello-api pods (spread across nodes when possible)"
+}
+
 variable "node_vm_size" {
   type    = string
   default = "Standard_B2s_v2"

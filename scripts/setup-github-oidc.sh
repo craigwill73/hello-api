@@ -55,6 +55,7 @@ create_federated_credential() {
 }
 
 create_federated_credential "github-main" "repo:${REPO}:ref:refs/heads/main"
+create_federated_credential "github-pull-request" "repo:${REPO}:pull_request"
 create_federated_credential "github-production" "repo:${REPO}:environment:production"
 
 az role assignment create \
