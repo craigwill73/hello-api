@@ -114,7 +114,7 @@ resource "kubernetes_deployment" "hello" {
 
           readiness_probe {
             http_get {
-              path = "/hello"
+              path = "/ready"
               port = 8000
             }
             initial_delay_seconds = 5
@@ -123,7 +123,7 @@ resource "kubernetes_deployment" "hello" {
 
           liveness_probe {
             http_get {
-              path = "/hello"
+              path = "/health"
               port = 8000
             }
             initial_delay_seconds = 15
@@ -170,6 +170,24 @@ resource "kubernetes_service" "hello" {
     port {
       port        = 80
       target_port = 8000
+    }
+  }
+
+  depends_on = [kubernetes_deployment.hello]
+}
+
+resource "kubernetes_pod_disruption_budget_v1" "hello" {
+  metadata {
+    name = "hello-api"
+  }
+
+  spec {
+    min_available = 1
+
+    selector {
+      match_labels = {
+        app = "hello-api"
+      }
     }
   }
 
