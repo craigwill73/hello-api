@@ -35,7 +35,7 @@ Deployed to **westeurope** on a 2-node AKS cluster (2 replicas, spread across no
 | Availability | Topology spread (one pod per node), `PodDisruptionBudget` (`minAvailable: 1`) |
 | Exposure | Azure LoadBalancer with static public IP |
 | API contract | OpenAPI at `/docs`; versioned paths under `/v1/` |
-| Delivery | GitHub Actions — test, image push, Terraform plan/apply |
+| Delivery | GitHub Actions — test, image push, Terraform plan/apply (image tag = git SHA) |
 
 ## TLS (not enabled)
 

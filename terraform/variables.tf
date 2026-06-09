@@ -46,6 +46,7 @@ variable "image_name" {
 }
 
 variable "image_tag" {
-  type    = string
-  default = "latest"
+  type        = string
+  description = "Container image tag to deploy (set to git SHA in CI)"
+  default     = "latest"
 }

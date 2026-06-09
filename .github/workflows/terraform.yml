@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - "app/**"
+      - "docker/**"
+      - "requirements.txt"
       - "terraform/**"
       - "bootstrap/**"
       - "scripts/bootstrap-if-needed.sh"
@@ -11,6 +14,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "app/**"
+      - "docker/**"
+      - "requirements.txt"
       - "terraform/**"
       - "bootstrap/**"
       - "scripts/bootstrap-if-needed.sh"
@@ -30,6 +36,8 @@ env:
   TF_IN_AUTOMATION: true
   TF_VAR_subscription_id: 6f92508f-de99-458d-ba9d-4cb3e043d862
   TF_VAR_acr_name: acrhelloapicw73
+  IMAGE_NAME: hello-api
+  ACR_NAME: acrhelloapicw73
   ARM_USE_OIDC: true
   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: d516f545-5bc2-4046-beb4-f302965b8373
@@ -50,6 +58,8 @@ jobs:
   plan:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_image_tag: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,16 +85,10 @@ jobs:
           chmod +x scripts/bootstrap-if-needed.sh
           ./scripts/bootstrap-if-needed.sh
 
-      - name: Configure kubeconfig for Kubernetes provider
+      - name: Require AKS for Kubernetes plan
         run: |
-          if az aks show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" >/dev/null 2>&1; then
-            az aks get-credentials \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --name "$AKS_NAME" \
-              --file "$HOME/.kube/config" \
-              --overwrite-existing
-          else
-            echo "AKS cluster not found yet; plan will cover Azure resources only."
+          if ! az aks show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" >/dev/null 2>&1; then
+            echo "AKS cluster not found yet; plan requires an existing cluster."
             exit 1
           fi
 
@@ -123,6 +127,8 @@ jobs:
       github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
+    env:
+      TF_VAR_image_tag: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -148,17 +154,14 @@ jobs:
           chmod +x scripts/bootstrap-if-needed.sh
           ./scripts/bootstrap-if-needed.sh
 
-      - name: Configure kubeconfig for Kubernetes provider
+      - name: Build and push image for this commit
+        working-directory: .
         run: |
-          if az aks show --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" >/dev/null 2>&1; then
-            az aks get-credentials \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --name "$AKS_NAME" \
-              --file "$HOME/.kube/config" \
-              --overwrite-existing
-          else
-            echo "AKS not found yet — applying Azure infrastructure first (Kubernetes resources on next run)."
-          fi
+          az acr login --name "$ACR_NAME"
+          IMAGE="${ACR_NAME}.azurecr.io/${IMAGE_NAME}"
+          docker build --platform linux/amd64 -f docker/Dockerfile -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+          docker push "${IMAGE}:${{ github.sha }}"
+          docker push "${IMAGE}:latest"
 
       - name: Terraform init
         run: terraform init -input=false
@@ -174,12 +177,6 @@ jobs:
               -target=azurerm_kubernetes_cluster.main \
               -target=azurerm_role_assignment.aks_acr_pull \
               -target=azurerm_public_ip.hello
-
-            az aks get-credentials \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --name "$AKS_NAME" \
-              --file "$HOME/.kube/config" \
-              --overwrite-existing
 
             terraform apply -auto-approve -input=false
           fi
