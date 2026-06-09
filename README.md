@@ -163,7 +163,7 @@ cd ../bootstrap && terraform destroy
 |---|---|
 | Region | westeurope |
 | Nodes | 2 × Standard_B2s_v2 (default pool) |
-| Replicas | 2 pods, spread across nodes via anti-affinity |
+| Replicas | 2 pods, one per node (`topologySpreadConstraints`, hard spread) |
 | Exposure | LoadBalancer + static public IP |
 | CI | pytest + ACR push (OIDC, linux/amd64) |
 | CD | Terraform plan on PR, apply on merge |

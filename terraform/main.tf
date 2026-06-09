@@ -90,18 +90,14 @@ resource "kubernetes_deployment" "hello" {
       }
 
       spec {
-        affinity {
-          pod_anti_affinity {
-            preferred_during_scheduling_ignored_during_execution {
-              weight = 100
-              pod_affinity_term {
-                label_selector {
-                  match_labels = {
-                    app = "hello-api"
-                  }
-                }
-                topology_key = "kubernetes.io/hostname"
-              }
+        topology_spread_constraint {
+          max_skew           = 1
+          topology_key       = "kubernetes.io/hostname"
+          when_unsatisfiable = "DoNotSchedule"
+
+          label_selector {
+            match_labels = {
+              app = "hello-api"
             }
           }
         }
