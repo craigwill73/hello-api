@@ -4,21 +4,28 @@ Public REST API on Azure AKS — `GET /hello` returns plain text `Hello World`.
 
 **Live base URL:** http://20.86.183.22
 
-## Endpoints
+## API endpoint
 
 | URL | Description |
 |---|---|
-| [http://20.86.183.22/hello](http://20.86.183.22/hello) | Hello endpoint |
-| [http://20.86.183.22/v1/hello](http://20.86.183.22/v1/hello) | Versioned API path |
-| [http://20.86.183.22/health](http://20.86.183.22/health) | Liveness probe |
-| [http://20.86.183.22/ready](http://20.86.183.22/ready) | Readiness probe |
-| [http://20.86.183.22/docs](http://20.86.183.22/docs) | OpenAPI (Swagger UI) |
-| [http://20.86.183.22/openapi.json](http://20.86.183.22/openapi.json) | OpenAPI spec |
+| [http://20.86.183.22/hello](http://20.86.183.22/hello) | `GET /hello` → `Hello World` |
 
 ```bash
 curl http://20.86.183.22/hello
 # Hello World
 ```
+
+## Operations (uptime & contract)
+
+Not required by API clients — used for health checks, versioning, and documentation.
+
+| URL | Description |
+|---|---|
+| [http://20.86.183.22/health](http://20.86.183.22/health) | Liveness probe |
+| [http://20.86.183.22/ready](http://20.86.183.22/ready) | Readiness probe |
+| [http://20.86.183.22/v1/hello](http://20.86.183.22/v1/hello) | Versioned path (same response) |
+| [http://20.86.183.22/docs](http://20.86.183.22/docs) | OpenAPI (Swagger UI) |
+| [http://20.86.183.22/openapi.json](http://20.86.183.22/openapi.json) | OpenAPI spec |
 
 ## Stack
 
