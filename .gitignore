@@ -1,16 +1,23 @@
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 venv/
 .env
+
+# Terraform — local state and provider cache (lock files are committed)
 *.tfstate
 *.tfstate.*
 .terraform/
-.terraform.lock.hcl
 *.log
-.DS_Store
 terraform.tfvars
-bootstrap/terraform.tfvars
+terraform.tfvars.json
+override.tf
+override.tf.json
+
+# Bootstrap uses local state when run manually
 bootstrap/terraform.tfstate
 bootstrap/terraform.tfstate.*
+
+.DS_Store
