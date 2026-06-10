@@ -1,2 +1,0 @@
-subscription_id = "6f92508f-de99-458d-ba9d-4cb3e043d862"
-acr_name        = "acrhelloapicw73"
